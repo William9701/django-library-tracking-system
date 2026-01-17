@@ -52,3 +52,46 @@ class MemberViewSet(viewsets.ModelViewSet):
 class LoanViewSet(viewsets.ModelViewSet):
     queryset = Loan.objects.all()
     serializer_class = LoanSerializer
+
+    @action(detail=True, methods=['post'], url_path='extend_due_date')
+    def extend_due_date(self, request, pk=None):
+        try:
+            loan = self.get_object()
+            if loan.is_overdue():
+                return Response({
+                    {"error": "cannot extend due date"}
+                })
+
+            if loan.is_returned():
+                return Response(
+                    {'error': 'cannot extend due date'}
+                )
+            
+            additional_days = request.data.get('additional_day')
+
+            if not additional_days:
+                return Response({
+                    {'error': 'additional days is required'}
+                })
+
+            try:
+                additional_days = int(additional_days)
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'additional dsyas must be a poitive value' }
+                )
+            
+            from datetime import timedelta
+            old_due_date = loan.due_date
+            loan.due_date = loan.due_date + timedelta(days= additional_days)
+
+            serializer = self.get_serializer(loan)
+            return Response(
+                {
+                    'status': 'due date extended sucesfully'
+                }
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)}
+            )
